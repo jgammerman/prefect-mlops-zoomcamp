@@ -14,7 +14,7 @@ from prefect.artifacts import create_markdown_artifact
 from datetime import date
 
 
-@task(retries=3, retry_delay_seconds=2)
+@task(retries=3, retry_delay_seconds=2, name="Read a Parquet file")
 def read_data(filename: str) -> pd.DataFrame:
     """Read data into DataFrame"""
     df = pd.read_parquet(filename)
@@ -33,7 +33,7 @@ def read_data(filename: str) -> pd.DataFrame:
     return df
 
 
-@task
+@task(name="Add features")
 def add_features(
     df_train: pd.DataFrame, df_val: pd.DataFrame
 ) -> tuple(
@@ -65,7 +65,7 @@ def add_features(
     return X_train, X_val, y_train, y_val, dv
 
 
-@task(log_prints=True)
+@task(name="Train Model", log_prints=True)
 def train_best_model(
     X_train: scipy.sparse._csr.csr_matrix,
     X_val: scipy.sparse._csr.csr_matrix,
@@ -130,10 +130,10 @@ def train_best_model(
     return None
 
 
-@flow
+@flow(name="Main Flow")
 def main_flow_s3(
-    train_path: str = "./data/green_tripdata_2021-01.parquet",
-    val_path: str = "./data/green_tripdata_2021-02.parquet",
+    train_path: str = "./data/green_tripdata_2022-01.parquet",
+    val_path: str = "./data/green_tripdata_2022-02.parquet",
 ) -> None:
     """The main training pipeline"""
 
@@ -142,7 +142,9 @@ def main_flow_s3(
     mlflow.set_experiment("nyc-taxi-experiment")
 
     # Load
-    s3_bucket_block = S3Bucket.load("s3-bucket-block")
+    # Loads the configuration of the S3 Bucket from the S3Bucket Block
+    s3_bucket_block = S3Bucket.load("s3-bucket-example")
+    # Downloads the data from the S3 bucket folder name "data" to the local folder "data"
     s3_bucket_block.download_folder_to_path(from_folder="data", to_folder="data")
 
     df_train = read_data(train_path)
